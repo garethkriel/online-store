@@ -1,0 +1,91 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+
+enum Supplier { TEMU SHEIN TAKEALOT MAKRO OTHER }
+enum OrderStatus { PENDING_PAYMENT PAID FULFILLING SHIPPED DELIVERED CANCELLED REFUNDED }
+enum JobStatus { QUEUED NEEDS_MANUAL PLACED FAILED }
+
+model Product {
+  id            String   @id @default(cuid())
+  supplier      Supplier
+  sourceUrl     String   @unique
+  sourceSku     String?
+  title         String
+  description   String?
+  images        String[]
+  supplierPrice Decimal  @db.Decimal(12, 2)   // in supplier currency
+  supplierCcy   String   @default("ZAR")
+  sellPrice     Decimal  @db.Decimal(12, 2)   // in store currency
+  shippingEst   Decimal  @db.Decimal(12, 2) @default(0)
+  leadTimeDays  Int      @default(5)
+  inStock       Boolean  @default(true)
+  active        Boolean  @default(false)
+  variants      Variant[]
+  lastSyncedAt  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Variant {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String   // e.g. "Black / XL"
+  sourceRef  String?  // supplier's variant id
+  priceDelta Decimal  @db.Decimal(12, 2) @default(0)
+  inStock    Boolean  @default(true)
+  items      OrderItem[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  number        Int         @unique @default(autoincrement())
+  status        OrderStatus @default(PENDING_PAYMENT)
+  email         String
+  phone         String?
+  shipName      String
+  shipLine1     String
+  shipLine2     String?
+  shipCity      String
+  shipProvince  String
+  shipPostcode  String
+  shipCountry   String      @default("ZA")
+  subtotal      Decimal     @db.Decimal(12, 2)
+  shipping      Decimal     @db.Decimal(12, 2)
+  total         Decimal     @db.Decimal(12, 2)
+  currency      String      @default("ZAR")
+  paymentRef    String?
+  items         OrderItem[]
+  jobs          FulfillmentJob[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId  String
+  variant    Variant  @relation(fields: [variantId], references: [id])
+  qty        Int
+  unitPrice  Decimal  @db.Decimal(12, 2)
+  unitCost   Decimal  @db.Decimal(12, 2)  // supplier cost snapshot in store ccy
+}
+
+/// One job per (order, supplier). Holds everything needed to place the supplier order.
+model FulfillmentJob {
+  id              String    @id @default(cuid())
+  orderId         String
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplier        Supplier
+  status          JobStatus @default(QUEUED)
+  payload         Json      // { items: [{sourceUrl, sourceRef, name, qty}], address: {...} }
+  supplierOrderNo String?
+  trackingNo      String?
+  carrier         String?
+  attempts        Int       @default(0)
+  lastError       String?
+  placedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
