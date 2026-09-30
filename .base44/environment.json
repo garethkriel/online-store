@@ -1,0 +1,11 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    { "name": "PAYFAST_MERCHANT_ID", "description": "PayFast merchant ID (sandbox or live) from PayFast dashboard", "requiredAtBoot": false },
+    { "name": "PAYFAST_MERCHANT_KEY", "description": "PayFast merchant key from PayFast dashboard", "requiredAtBoot": false },
+    { "name": "PAYFAST_PASSPHRASE", "description": "PayFast passphrase set in your PayFast account settings", "requiredAtBoot": false },
+    { "name": "RESEND_API_KEY", "description": "Resend API key for transactional emails (optional — emails log to console without it)", "requiredAtBoot": false }
+  ]
+}
